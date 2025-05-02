@@ -4,13 +4,13 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
 import Home from "./pages/Home"
 import Create from "./pages/Create"
 import Update from "./pages/Update"
-
+import Contact from "./pages/Contact"
 
 function App() {
   return (
     <BrowserRouter>
       <nav>
-        <h1>Supa Smoothie</h1>
+        <h1>Supa Smoothies</h1>
         <Link to="/">Home</Link>
         <Link to="/create">Create New Smoothie</Link>
         <Link to="/contact">Contact</Link>
@@ -18,8 +18,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/create" element={<Create />} />
-        <Route path="/contact" element ={<Contact />} />
         <Route path="/:id" element={<Update />} />
+        <Route path="/contact" element={<Contact />} />
       </Routes>
     </BrowserRouter>
   );
