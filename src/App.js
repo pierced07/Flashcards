@@ -2,9 +2,9 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
 
 // pages
 import Home from "./pages/Home"
-import Create from "./pages/Create"
 import Update from "./pages/Update"
 import Contact from "./pages/Contact"
+import FlashcardManager from "./pages/FlashcardManager"
 
 function App() {
   return (
@@ -12,14 +12,15 @@ function App() {
       <nav>
         <h1>Supa Smoothies</h1>
         <Link to="/">Home</Link>
-        <Link to="/create">Create New Smoothie</Link>
         <Link to="/contact">Contact</Link>
+        <Link to="/manage">Manage Flashcards</Link>
       </nav>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/create" element={<Create />} />
         <Route path="/:id" element={<Update />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/manage" element={<FlashcardManager />} />
+
       </Routes>
     </BrowserRouter>
   );
