@@ -5,6 +5,7 @@ const Flashcards = () => {
   const [flashcards, setFlashcards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false); // Track pause state
 
   useEffect(() => {
     const fetchFlashcards = async () => {
@@ -50,17 +51,37 @@ const Flashcards = () => {
   };
 
   const startReading = () => {
-    setCurrentIndex(0);
+    setCurrentIndex(0);  // Reset to the first flashcard
     setIsSpeaking(true);
-    readCard(0);
+    setIsPaused(false); // Ensure it's not paused
+    readCard(0); // Start reading from the first flashcard
   };
 
   const skipCard = () => {
     if (!isSpeaking) return;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Stop current speech
     const next = currentIndex + 1;
     setCurrentIndex(next);
-    readCard(next);
+    readCard(next); // Move to the next flashcard
+  };
+
+  const pauseReading = () => {
+    window.speechSynthesis.cancel(); // Stop current speech
+    setIsSpeaking(false); // Update speaking state to paused
+    setIsPaused(true); // Mark as paused
+  };
+
+  const resumeReading = () => {
+    setIsSpeaking(true);
+    setIsPaused(false);
+    readCard(currentIndex); // Resume from the current index
+  };
+
+  const restartReading = () => {
+    window.speechSynthesis.cancel(); // Stop any ongoing speech immediately
+    setIsSpeaking(false); // Ensure it's not speaking
+    setIsPaused(false); // Reset pause state
+    setCurrentIndex(0); // Go back to the first flashcard immediately
   };
 
   return (
@@ -80,7 +101,65 @@ const Flashcards = () => {
         >
           Start Flashcards
         </button>
+        {isSpeaking && !isPaused && (
+          <button
+            onClick={pauseReading}
+            style={{
+              fontSize: '14px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#FF9800',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              marginLeft: '10px'
+            }}
+          >
+            Pause Flashcards
+          </button>
+        )}
+        {isPaused && (
+          <button
+            onClick={resumeReading}
+            style={{
+              fontSize: '14px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              marginLeft: '10px'
+            }}
+          >
+            Resume Flashcards
+          </button>
+        )}
+        <button
+          onClick={restartReading}
+          style={{
+            fontSize: '14px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            backgroundColor: '#2196F3',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+            marginLeft: '10px'
+          }}
+        >
+          Restart Flashcards
+        </button>
       </div>
+      {/* Optional: Display question and answer visually while speaking */}
+      {flashcards.length > 0 && (
+        <div style={{ padding: '10px', marginTop: '20px' }}>
+          <h3>Question:</h3>
+          <p>{flashcards[currentIndex]?.Question}</p>
+          <h3>Answer:</h3>
+          <p>{flashcards[currentIndex]?.Answer}</p>
+        </div>
+      )}
       <div
         onClick={skipCard}
         style={{
