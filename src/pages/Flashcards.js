@@ -6,8 +6,10 @@ const Flashcards = () => {
   const [orderedFlashcards, setOrderedFlashcards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [order, setOrder] = useState('oldest');
+
+  const [hasReadAnswer, setHasReadAnswer] = useState(false);
+  const [readyForAnswer, setReadyForAnswer] = useState(false);
 
   useEffect(() => {
     const fetchFlashcards = async () => {
@@ -22,7 +24,6 @@ const Flashcards = () => {
     fetchFlashcards();
   }, []);
 
-  // Reorder flashcards when order changes
   useEffect(() => {
     if (flashcards.length > 0) {
       reorderFlashcards(flashcards, order);
@@ -54,67 +55,81 @@ const Flashcards = () => {
     }
 
     const card = orderedFlashcards[index];
-    const questionUtterance = new SpeechSynthesisUtterance(`${card.Question}`);
+    const questionUtterance = new SpeechSynthesisUtterance(card.Question);
     questionUtterance.rate = 1;
     questionUtterance.pitch = 1;
 
     questionUtterance.onend = () => {
-      setTimeout(() => {
-        const answerUtterance = new SpeechSynthesisUtterance(`${card.Answer}`);
-        answerUtterance.rate = 1;
-        answerUtterance.pitch = 1;
-
-        answerUtterance.onend = () => {
-          if (isSpeaking) {
-            const next = index + 1;
-            setTimeout(() => {
-              setCurrentIndex(next);
-              readCard(next);
-            }, 500);
-          }
-        };
-
-        window.speechSynthesis.speak(answerUtterance);
-      }, 1000);
+      setReadyForAnswer(true); // Wait for user to tap to hear answer
     };
 
+    setHasReadAnswer(false);
+    setReadyForAnswer(false);
     setCurrentIndex(index);
+    setIsSpeaking(true);
+
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(questionUtterance);
+  };
+
+  const readAnswer = () => {
+    const card = orderedFlashcards[currentIndex];
+    const answerUtterance = new SpeechSynthesisUtterance(card.Answer);
+    answerUtterance.rate = 1;
+    answerUtterance.pitch = 1;
+
+    answerUtterance.onend = () => {
+      const next = currentIndex + 1;
+      if (next < orderedFlashcards.length) {
+        setTimeout(() => readCard(next), 500);
+      } else {
+        setIsSpeaking(false);
+      }
+    };
+
+    setHasReadAnswer(true);
+    setReadyForAnswer(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(answerUtterance);
+  };
+
+  const handleCardClick = () => {
+    if (!isSpeaking) return;
+
+    if (!hasReadAnswer) {
+      if (readyForAnswer) {
+        // Question finished, waiting for tap to start answer
+        readAnswer();
+      } else {
+        // Tap during question → skip to answer
+        window.speechSynthesis.cancel();
+        readAnswer();
+      }
+    } else {
+      // Tap during answer → skip to next card
+      window.speechSynthesis.cancel();
+      const next = currentIndex + 1;
+      if (next < orderedFlashcards.length) {
+        readCard(next);
+      } else {
+        setIsSpeaking(false);
+      }
+    }
   };
 
   const startReading = () => {
     if (orderedFlashcards.length === 0) return;
+    setIsSpeaking(true);
     setCurrentIndex(0);
-    setIsSpeaking(true);
-    setIsPaused(false);
     readCard(0);
-  };
-
-  const skipCard = () => {
-    if (!isSpeaking) return;
-    window.speechSynthesis.cancel();
-    const next = currentIndex + 1;
-    setCurrentIndex(next);
-    readCard(next);
-  };
-
-  const pauseReading = () => {
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-    setIsPaused(true);
-  };
-
-  const resumeReading = () => {
-    setIsSpeaking(true);
-    setIsPaused(false);
-    readCard(currentIndex);
   };
 
   const restartReading = () => {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    setIsPaused(false);
     setCurrentIndex(0);
+    setHasReadAnswer(false);
+    setReadyForAnswer(false);
   };
 
   const currentCard = orderedFlashcards[currentIndex];
@@ -136,40 +151,7 @@ const Flashcards = () => {
         >
           Start Flashcards
         </button>
-        {isSpeaking && !isPaused && (
-          <button
-            onClick={pauseReading}
-            style={{
-              fontSize: '14px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: '#FF9800',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              marginLeft: '10px'
-            }}
-          >
-            Pause Flashcards
-          </button>
-        )}
-        {isPaused && (
-          <button
-            onClick={resumeReading}
-            style={{
-              fontSize: '14px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              marginLeft: '10px'
-            }}
-          >
-            Resume Flashcards
-          </button>
-        )}
+
         <button
           onClick={restartReading}
           style={{
@@ -185,6 +167,7 @@ const Flashcards = () => {
         >
           Restart Flashcards
         </button>
+
         <select
           value={order}
           onChange={(e) => setOrder(e.target.value)}
@@ -205,13 +188,17 @@ const Flashcards = () => {
         <div style={{ padding: '10px', marginTop: '20px' }}>
           <h3>Question:</h3>
           <p>{currentCard.Question}</p>
-          <h3>Answer:</h3>
-          <p>{currentCard.Answer}</p>
+          {hasReadAnswer && (
+            <>
+              <h3>Answer:</h3>
+              <p>{currentCard.Answer}</p>
+            </>
+          )}
         </div>
       )}
 
       <div
-        onClick={skipCard}
+        onClick={handleCardClick}
         style={{
           flexGrow: 1,
           backgroundColor: '#f2f2f2',
@@ -225,7 +212,11 @@ const Flashcards = () => {
           cursor: 'pointer'
         }}
       >
-        Tap anywhere to skip to next flashcard
+        {!isSpeaking
+          ? 'Click "Start Flashcards"'
+          : !hasReadAnswer
+          ? 'Tap to hear the answer'
+          : 'Tap to skip to next flashcard'}
       </div>
     </div>
   );
