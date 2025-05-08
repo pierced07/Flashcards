@@ -10,7 +10,7 @@ const Flashcards = () => {
 
   const [hasReadAnswer, setHasReadAnswer] = useState(false);
   const [readyForAnswer, setReadyForAnswer] = useState(false);
-//small change 
+
   useEffect(() => {
     const fetchFlashcards = async () => {
       const { data, error } = await supabase.from('Flashcards').select();
