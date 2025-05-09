@@ -10,6 +10,11 @@ const Flashcards = () => {
 
   const [hasReadAnswer, setHasReadAnswer] = useState(false);
   const [readyForAnswer, setReadyForAnswer] = useState(false);
+  const [answerFinished, setAnswerFinished] = useState(false);
+  const [waitingForNext, setWaitingForNext] = useState(false);
+
+  const [questionEndTime, setQuestionEndTime] = useState(null);
+  const [answerRevealTime, setAnswerRevealTime] = useState(null); // Time user taps to hear answer
 
   useEffect(() => {
     const fetchFlashcards = async () => {
@@ -60,13 +65,15 @@ const Flashcards = () => {
     questionUtterance.pitch = 1;
 
     questionUtterance.onend = () => {
-      setReadyForAnswer(true); // Wait for user to tap to hear answer
+      setQuestionEndTime(new Date());
+      setReadyForAnswer(true);
     };
 
     setHasReadAnswer(false);
     setReadyForAnswer(false);
     setCurrentIndex(index);
     setIsSpeaking(true);
+    setAnswerRevealTime(null);
 
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(questionUtterance);
@@ -79,18 +86,41 @@ const Flashcards = () => {
     answerUtterance.pitch = 1;
 
     answerUtterance.onend = () => {
-      const next = currentIndex + 1;
-      if (next < orderedFlashcards.length) {
-        setTimeout(() => readCard(next), 500);
-      } else {
-        setIsSpeaking(false);
-      }
+      setAnswerFinished(true);
+      setWaitingForNext(true);
     };
 
+    setAnswerRevealTime(new Date()); // Capture time when user taps to hear answer
     setHasReadAnswer(true);
     setReadyForAnswer(false);
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(answerUtterance);
+  };
+
+  const logFlashcardReview = async (correctness) => {
+    const flashcardId = orderedFlashcards[currentIndex].id;
+    const currentTimestamp = new Date().toISOString(); // UTC ISO format
+
+    let timeTaken = 0;
+    if (questionEndTime && answerRevealTime) {
+      const diff = (answerRevealTime - questionEndTime) / 1000;
+      if (diff > 0) timeTaken = parseFloat(diff.toFixed(2));
+    }
+
+    const { data, error } = await supabase.from('FlashcardStats').insert([
+      {
+        Flashcard_ID: flashcardId,
+        Correctness: correctness,
+        Reviewed: currentTimestamp,
+        Time_Taken: timeTaken,
+      },
+    ]);
+
+    if (error) {
+      console.error('Error logging flashcard review:', error);
+    } else {
+      console.log('Flashcard review logged:', data);
+    }
   };
 
   const handleCardClick = () => {
@@ -98,23 +128,39 @@ const Flashcards = () => {
 
     if (!hasReadAnswer) {
       if (readyForAnswer) {
-        // Question finished, waiting for tap to start answer
         readAnswer();
       } else {
-        // Tap during question → skip to answer
         window.speechSynthesis.cancel();
         readAnswer();
       }
-    } else {
-      // Tap during answer → skip to next card
-      window.speechSynthesis.cancel();
-      const next = currentIndex + 1;
-      if (next < orderedFlashcards.length) {
-        readCard(next);
-      } else {
-        setIsSpeaking(false);
-      }
+      return;
     }
+
+    if (hasReadAnswer && !answerFinished) {
+      window.speechSynthesis.cancel();
+      logFlashcardReview(true);
+      goToNextFlashcard();
+      return;
+    }
+
+    if (answerFinished) {
+      logFlashcardReview(false);
+      goToNextFlashcard();
+    }
+  };
+
+  const goToNextFlashcard = () => {
+    const next = currentIndex + 1;
+    if (next < orderedFlashcards.length) {
+      readCard(next);
+    } else {
+      setIsSpeaking(false);
+    }
+
+    setAnswerFinished(false);
+    setHasReadAnswer(false);
+    setWaitingForNext(false);
+    setReadyForAnswer(false);
   };
 
   const startReading = () => {
